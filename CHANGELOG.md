@@ -12,4 +12,4 @@ Initial experimental implementation. Not published to crates.io.
 - Upstream protobuf decoding and `profcheck` conformance tests, a checkout demo exporting profiles and traces, and readback checks against Collector, sigiro, and Pyroscope.
 - Reproducible short-soak measurements against Pyroscope Rust 2.1.5, real sigiro screenshots, and animated implementation explainers.
 
-Known limits include native signal-unwinder reentrancy risks, no jemalloc heap span links, no gRPC exporter, evolving OTLP Profiles compatibility, and incomplete long-duration/high-cardinality memory characterization. See [setup](docs/setup.md), [receivers](docs/receivers.md), and [measurements](docs/benchmarks.md).
+Known limits include native CPU timer undercount on the macOS Intel CI runner, signal-unwinder reentrancy risks, no jemalloc heap span links, no gRPC exporter, evolving OTLP Profiles compatibility, and incomplete long-duration/high-cardinality memory characterization. See [setup](docs/setup.md), [receivers](docs/receivers.md), and [measurements](docs/benchmarks.md).

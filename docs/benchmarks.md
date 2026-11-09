@@ -31,6 +31,10 @@ Throughput varies substantially, particularly in the early rounds. Process CPU p
 
 Pyroscope shutdown includes upload-window coordination and, for the heap case, stopping two agents concurrently. It is not a comparison of sampler stop latency alone. The RSS figures are high-water marks, not retained-memory or leak measurements. Longer runs with many distinct allocation stacks, more threads, allocator-heavy workloads, and a controlled Linux host remain necessary.
 
+## CPU values are not exact accounting
+
+The overhead table uses native process CPU counters, not exported profile values. A later [counting-only native timer experiment](benchmarks/timer-delivery.json) found substantial `ITIMER_PROF` underdelivery on the macOS Intel CI runner, independently of our unwinder. Requested 100 Hz produced only 70 signals over 1.277 CPU seconds, ratio 0.548. The ARM runner and local M4 also showed smaller deficits. This does not invalidate measured process CPU/work above, but it prevents a blanket CPU-profile accuracy claim. The Intel accuracy test remains red; see [known limits](setup.md#known-macos-timer-accuracy-limit).
+
 ## jemalloc dump cost
 
 A separate 75-second run retained 64 MiB at one allocation site while repeatedly allocating and freeing 16 KiB blocks. It called `prof.dump` every 15 seconds with cumulative counters enabled. Five 6,511-byte dumps took **0.324–0.542 ms**, median **0.473 ms**. See `dump-cost.json`.

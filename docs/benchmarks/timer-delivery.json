@@ -1,0 +1,122 @@
+{
+  "workflow_run": "https://github.com/akshatagarwl/otelprofile-rs/actions/runs/42642847554",
+  "commit": "80097f494c9fe7b7bed7ab0b77da0ab7a0c3ce48",
+  "probe": "scripts/cpu-timer-probe.c",
+  "method": "one counting-only SIGPROF handler, one burner thread, 1.5 seconds wall per rate, native clocks, no unwinder",
+  "results": {
+    "macos-15-intel": [
+      {
+        "requested_hz": 40,
+        "all_samples": 38,
+        "worker_samples": 38,
+        "thread_cpu_s": 1.295212651,
+        "process_cpu_s": 1.295338,
+        "worker_ratio": 0.73347,
+        "all_ratio": 0.733399
+      },
+      {
+        "requested_hz": 60,
+        "all_samples": 63,
+        "worker_samples": 63,
+        "thread_cpu_s": 1.286362664,
+        "process_cpu_s": 1.286421,
+        "worker_ratio": 0.816255,
+        "all_ratio": 0.816218
+      },
+      {
+        "requested_hz": 100,
+        "all_samples": 70,
+        "worker_samples": 70,
+        "thread_cpu_s": 1.276701079,
+        "process_cpu_s": 1.276952,
+        "worker_ratio": 0.548288,
+        "all_ratio": 0.54818
+      },
+      {
+        "requested_hz": 200,
+        "all_samples": 80,
+        "worker_samples": 80,
+        "thread_cpu_s": 1.488640589,
+        "process_cpu_s": 1.48874,
+        "worker_ratio": 0.268702,
+        "all_ratio": 0.268684
+      }
+    ],
+    "macos-latest": [
+      {
+        "requested_hz": 40,
+        "all_samples": 54,
+        "worker_samples": 54,
+        "thread_cpu_s": 1.498677167,
+        "process_cpu_s": 1.498733,
+        "worker_ratio": 0.900794,
+        "all_ratio": 0.900761
+      },
+      {
+        "requested_hz": 60,
+        "all_samples": 76,
+        "worker_samples": 76,
+        "thread_cpu_s": 1.497722875,
+        "process_cpu_s": 1.497803,
+        "worker_ratio": 0.845728,
+        "all_ratio": 0.845683
+      },
+      {
+        "requested_hz": 100,
+        "all_samples": 125,
+        "worker_samples": 125,
+        "thread_cpu_s": 1.498615791,
+        "process_cpu_s": 1.498681,
+        "worker_ratio": 0.834103,
+        "all_ratio": 0.834067
+      },
+      {
+        "requested_hz": 200,
+        "all_samples": 191,
+        "worker_samples": 191,
+        "thread_cpu_s": 1.498081667,
+        "process_cpu_s": 1.498132,
+        "worker_ratio": 0.637482,
+        "all_ratio": 0.637461
+      }
+    ],
+    "local-apple-m4": [
+      {
+        "requested_hz": 40,
+        "all_samples": 55,
+        "worker_samples": 55,
+        "thread_cpu_s": 1.489991458,
+        "process_cpu_s": 1.490077,
+        "worker_ratio": 0.922824,
+        "all_ratio": 0.922771
+      },
+      {
+        "requested_hz": 60,
+        "all_samples": 81,
+        "worker_samples": 81,
+        "thread_cpu_s": 1.435297125,
+        "process_cpu_s": 1.435376,
+        "worker_ratio": 0.940572,
+        "all_ratio": 0.94052
+      },
+      {
+        "requested_hz": 100,
+        "all_samples": 129,
+        "worker_samples": 129,
+        "thread_cpu_s": 1.403270916,
+        "process_cpu_s": 1.403341,
+        "worker_ratio": 0.919281,
+        "all_ratio": 0.919235
+      },
+      {
+        "requested_hz": 200,
+        "all_samples": 245,
+        "worker_samples": 245,
+        "thread_cpu_s": 1.473268416,
+        "process_cpu_s": 1.473388,
+        "worker_ratio": 0.831485,
+        "all_ratio": 0.831417
+      }
+    ]
+  }
+}

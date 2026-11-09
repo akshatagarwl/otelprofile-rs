@@ -28,7 +28,7 @@ fn main() -> Result<(), otelprofile::Error> {
 }
 ```
 
-CPU at 100 Hz. Heap sampling at a mean 512 KiB. Export every 15 seconds over OTLP/HTTP. Already using jemalloc? [Use its built-in profiler instead.](docs/setup.md#jemalloc)
+CPU requests 100 Hz. Heap sampling at a mean 512 KiB. Export every 15 seconds over OTLP/HTTP. Already using jemalloc? [Use its built-in profiler instead.](docs/setup.md#jemalloc)
 
 ## Find the hot code
 
@@ -62,6 +62,6 @@ The `opentelemetry` feature observes active OpenTelemetry contexts, including sp
 
 [Setup and limits](docs/setup.md) · [Receiver verification](docs/receivers.md) · [Measured overhead](docs/benchmarks.md) · [Scorecard](SCORECARD.md) · [Rebuild these assets](docs/assets/src/README.md)
 
-Linux and macOS, x86-64 and ARM64. Keep debug information for useful function names. See the setup guide for signal and unwinder constraints.
+Linux and macOS, x86-64 and ARM64. Keep debug information for useful function names. The macOS Intel runner currently fails absolute CPU-time accuracy; see [timer and unwinder limits](docs/setup.md#known-macos-timer-accuracy-limit).
 
 Rust sibling of [otelprofile-go](https://github.com/akshatagarwl/otelprofile-go). Apache-2.0; [license](LICENSE).

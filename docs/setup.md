@@ -14,13 +14,19 @@ debug = 1
 
 ## CPU
 
-CPU profiling emits both `cpu` nanoseconds and `samples` counts at 100 Hz. It uses `SIGPROF` and `ITIMER_PROF` inside the process. No eBPF, privileges, or external agent is required.
+CPU profiling emits both `cpu` nanoseconds and `samples` counts at a nominal 100 Hz. It uses `SIGPROF` and `ITIMER_PROF` inside the process. No eBPF, privileges, or external agent is required.
 
 The interrupted thread is unwound in the signal handler. Addresses are symbolized off-thread. Unwind metadata and retained symbols improve the result; stripped binaries may contain address-only frames. Frame pointers can help native tooling but are not required by this unwinder.
 
 Do not combine CPU sampling with another `SIGPROF` or `ITIMER_PROF` owner. The profiler rejects a pre-existing custom signal handler, leaves its own handler installed after stopping, and disables its timer. Restarting CPU profiling reuses that handler. Test signal interactions in your application.
 
 **This is not a signal-safety guarantee.** The implementation warms the native unwinder and avoids unwinding known libunwind/libgcc regions. Native unwinding from an asynchronous signal still has reentrancy risks. Those regions appear as `[library]` frames. Unsupported native libraries and dynamic loading need application-specific validation.
+
+### Known macOS timer accuracy limit
+
+The macOS Intel GitHub runner currently fails the absolute CPU-time test. Three runs recorded roughly 0.56–0.60 times the burner's measured thread CPU. A standalone C probe with only a counting signal handler reproduced the undercount: 70 signals over 1.277 CPU seconds at requested 100 Hz, ratio 0.548. All signals reached the worker, so this result needs neither wrong-thread delivery nor our unwinder to occur. The ARM runner and local M4 also showed smaller native delivery deficits.
+
+This isolates a mismatch between native timer delivery and native CPU-clock accounting below our unwinder. It does not identify which kernel/VM accounting mechanism is responsible or diagnose every Intel Mac. Nominal sample periods can understate actual CPU time when signals are missed or delayed. Absolute CPU-accuracy CI remains failing on that Intel runner; the acceptance bound was not weakened. [Probe records and exact CI revision](benchmarks/timer-delivery.json) are public. Do not treat these profiles as exact CPU accounting.
 
 ## Heap with any allocator
 
