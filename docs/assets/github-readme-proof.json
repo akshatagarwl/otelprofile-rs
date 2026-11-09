@@ -1,0 +1,48 @@
+{
+  "url": "https://github.com/akshatagarwl/otelprofile-rs",
+  "images": [
+    {
+      "alt": "A Rust service starts in-process samplers and exports OTLP Profiles",
+      "src": "https://github.com/akshatagarwl/otelprofile-rs/raw/main/docs/assets/flow.svg",
+      "width": 960,
+      "height": 330
+    },
+    {
+      "alt": "CPU flame graph with checkout and price functions",
+      "src": "https://github.com/akshatagarwl/otelprofile-rs/raw/main/docs/assets/sigiro-cpu.png",
+      "width": 1440,
+      "height": 1353
+    },
+    {
+      "alt": "Two heap backends, with span links available from the sampling allocator",
+      "src": "https://github.com/akshatagarwl/otelprofile-rs/raw/main/docs/assets/heap.svg",
+      "width": 960,
+      "height": 410
+    },
+    {
+      "alt": "Heap flame graph identifying render_receipt as the main allocation site",
+      "src": "https://github.com/akshatagarwl/otelprofile-rs/raw/main/docs/assets/sigiro-heap.png",
+      "width": 1440,
+      "height": 1479
+    },
+    {
+      "alt": "Samples record the span that was active at sampling time",
+      "src": "https://github.com/akshatagarwl/otelprofile-rs/raw/main/docs/assets/span-links.svg",
+      "width": 960,
+      "height": 330
+    },
+    {
+      "alt": "A real checkout span opened as a CPU profile filtered by trace and span ID",
+      "src": "https://github.com/akshatagarwl/otelprofile-rs/raw/main/docs/assets/sigiro-span.png",
+      "width": 1440,
+      "height": 1224
+    },
+    {
+      "alt": "Request-wide dictionaries deduplicate functions, stacks, strings and links",
+      "src": "https://github.com/akshatagarwl/otelprofile-rs/raw/main/docs/assets/dictionary.svg",
+      "width": 960,
+      "height": 330
+    }
+  ],
+  "animation_changed_pixels": true
+}
