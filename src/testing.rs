@@ -1,6 +1,8 @@
 //! Test oracle: decode a request with the upstream `opentelemetry-proto`
 //! types and resolve every index, the way a receiver would.
 
+#![allow(dead_code)] // helpers are used by feature-gated tests too
+
 use std::fmt::Write as _;
 
 /// Tests that start the CPU sampler hold this: SIGPROF and its timer are
@@ -301,4 +303,54 @@ impl MockReceiver {
     pub(crate) fn requests(&self) -> Vec<Received> {
         self.requests.lock().unwrap().clone()
     }
+}
+
+/// Burns CPU on the calling thread for `budget` of wall time.
+#[inline(never)]
+pub(crate) fn burn(budget: std::time::Duration) -> u64 {
+    let started = std::time::Instant::now();
+    let mut x = 1u64;
+    while started.elapsed() < budget {
+        for _ in 0..1_000_000 {
+            x = std::hint::black_box(x.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1));
+        }
+    }
+    x
+}
+
+/// Runs `work` under the real CPU sampler and returns the window's CPU
+/// samples taken on the calling thread.
+pub(crate) fn cpu_samples_of(work: impl FnOnce()) -> Vec<crate::model::Sample> {
+    let _sigprof = SIGPROF.lock().unwrap_or_else(|e| e.into_inner());
+    let mut sampler = crate::cpu::CpuSampler::start().unwrap();
+    let name = std::thread::current()
+        .name()
+        .unwrap_or_default()
+        .to_string();
+    work();
+    let profiles = sampler.collect(
+        &mut crate::symbolize::Symbolizer::default(),
+        &crate::context::labels,
+        0,
+        0,
+    );
+    drop(sampler);
+    profiles
+        .into_iter()
+        .filter(|p| p.kind == crate::model::Kind::Cpu)
+        .flat_map(|p| p.samples)
+        .filter(|s| {
+            s.labels
+                .iter()
+                .any(|(k, v)| &**k == "thread.name" && name.starts_with(&**v))
+        })
+        .collect()
+}
+
+pub(crate) fn in_function(samples: &[crate::model::Sample], function: &str) -> i64 {
+    samples
+        .iter()
+        .filter(|s| s.stack.iter().any(|f| f.function.contains(function)))
+        .map(|s| s.value)
+        .sum()
 }

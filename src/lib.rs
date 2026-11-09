@@ -10,24 +10,35 @@
 //! # Ok::<(), otelprofile::Error>(())
 //! ```
 //!
+//! Wrap code in [`tag_wrapper`] to label its samples. With the
+//! `opentelemetry` feature, samples taken while an OpenTelemetry span is
+//! active (including `tracing` spans bridged by `tracing-opentelemetry`)
+//! carry that span's trace and span IDs as OTLP sample links.
+//!
 //! Experimental. The OTLP Profiles signal is still in development
 //! (`/v1development/profiles`), so the wire format and this API will change.
 
 mod config;
-#[cfg(any(target_os = "linux", target_os = "macos"))]
+mod context;
 mod cpu;
 mod encode;
 mod export;
+mod labels;
 mod model;
 mod profiler;
 mod proto;
+pub mod span;
 mod symbolize;
 #[cfg(test)]
 mod testing;
 
+#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+compile_error!("otelprofile supports Linux and macOS only");
+
 use std::time::Duration;
 
 pub use config::ConfigError;
+pub use labels::{Tagged, tag_future, tag_wrapper};
 pub use model::{AttributeValue, SpanLink};
 pub use profiler::Profiler;
 

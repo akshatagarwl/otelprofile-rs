@@ -1,7 +1,6 @@
 //! `start`: the sampler thread (drains the CPU ring, builds a batch per
 //! interval) and the exporter thread (posts batches), joined on drop.
 
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, RecvTimeoutError, SyncSender, TrySendError};
 use std::thread::JoinHandle;
@@ -9,7 +8,7 @@ use std::time::{Duration, Instant, SystemTime};
 
 use crate::config::{Env, export_settings, parse_pairs, process_env};
 use crate::export::Exporter;
-use crate::model::{AttributeValue, Labels, Origin, Profile};
+use crate::model::{AttributeValue, Origin, Profile};
 use crate::symbolize::Symbolizer;
 use crate::{Config, Error, ProfileType};
 
@@ -236,13 +235,11 @@ impl Drop for Profiler {
 
 /// The sources that produce profiles each window.
 struct Sources {
-    #[cfg(any(target_os = "linux", target_os = "macos"))]
     cpu: Option<crate::cpu::CpuSampler>,
 }
 
 impl Sources {
     fn start(types: &[ProfileType]) -> Self {
-        #[cfg(any(target_os = "linux", target_os = "macos"))]
         let cpu = if types.contains(&ProfileType::Cpu) {
             crate::cpu::CpuSampler::start()
                 .map_err(|e| log::error!("otelprofile: CPU profiling is off: {e}"))
@@ -250,21 +247,13 @@ impl Sources {
         } else {
             None
         };
-        #[cfg(not(any(target_os = "linux", target_os = "macos")))]
-        if types.contains(&ProfileType::Cpu) {
-            log::warn!("otelprofile: CPU profiling is only supported on Linux and macOS");
-        }
         if types.contains(&ProfileType::Heap) {
             log::info!("otelprofile: no heap backend is active");
         }
-        Self {
-            #[cfg(any(target_os = "linux", target_os = "macos"))]
-            cpu,
-        }
+        Self { cpu }
     }
 
     fn drain(&mut self) {
-        #[cfg(any(target_os = "linux", target_os = "macos"))]
         if let Some(cpu) = &mut self.cpu {
             cpu.drain();
         }
@@ -278,13 +267,15 @@ impl Sources {
     ) -> Vec<Profile> {
         let start_nanos = unix_nanos(start);
         let duration = now.duration_since(start).unwrap_or_default().as_nanos() as u64;
-        let no_labels = |_: u32| -> Labels { Arc::from([]) };
         let mut profiles = Vec::new();
-        #[cfg(any(target_os = "linux", target_os = "macos"))]
         if let Some(cpu) = &mut self.cpu {
-            profiles.extend(cpu.collect(symbolizer, &no_labels, start_nanos, duration));
+            profiles.extend(cpu.collect(
+                symbolizer,
+                &crate::context::labels,
+                start_nanos,
+                duration,
+            ));
         }
-        let _ = (symbolizer, &no_labels, start_nanos, duration);
         profiles
     }
 }
@@ -303,6 +294,8 @@ pub(crate) fn start_with_env(config: Config, env: Env<'_>) -> Result<Profiler, E
     let Some((settings, export)) = settings(&config, env)? else {
         return Ok(Profiler::disabled());
     };
+    #[cfg(feature = "opentelemetry")]
+    crate::span::otel::install();
     if RUNNING.swap(true, Ordering::AcqRel) {
         return Err(Error::Start(
             "a profiler is already running in this process".into(),
@@ -393,11 +386,12 @@ struct Reporter {
 
 impl Reporter {
     fn report(&mut self, message: &str) {
-        if let Some((last, at)) = &self.last {
-            if last == message && at.elapsed() < Duration::from_secs(60) {
-                self.repeats += 1;
-                return;
-            }
+        if let Some((last, at)) = &self.last
+            && last == message
+            && at.elapsed() < Duration::from_secs(60)
+        {
+            self.repeats += 1;
+            return;
         }
         if self.repeats > 0 {
             log::warn!(

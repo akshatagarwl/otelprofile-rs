@@ -90,50 +90,51 @@ unsafe fn interrupted(ucontext: *mut c_void) -> (usize, usize) {
     if ucontext.is_null() {
         return (0, 0);
     }
-    let ucontext = ucontext.cast::<libc::ucontext_t>();
     // SAFETY: the kernel passes a valid ucontext_t to SA_SIGINFO handlers.
-    unsafe {
-        #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
-        {
-            let regs = &(*ucontext).uc_mcontext.gregs;
-            return (
-                regs[libc::REG_RIP as usize] as usize,
-                regs[libc::REG_RSP as usize] as usize,
-            );
-        }
-        #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
-        {
-            let mcontext = &(*ucontext).uc_mcontext;
-            return (mcontext.pc as usize, mcontext.sp as usize);
-        }
-        #[cfg(target_os = "macos")]
-        {
-            let mcontext = (*ucontext).uc_mcontext;
-            if mcontext.is_null() {
-                return (0, 0);
-            }
-            #[cfg(target_arch = "x86_64")]
-            return (
-                (*mcontext).__ss.__rip as usize,
-                (*mcontext).__ss.__rsp as usize,
-            );
-            #[cfg(target_arch = "aarch64")]
-            return (
-                (*mcontext).__ss.__pc as usize,
-                (*mcontext).__ss.__sp as usize,
-            );
-        }
-    }
+    unsafe { registers(&*ucontext.cast::<libc::ucontext_t>()) }
 }
 
-fn errno_location() -> *mut c_int {
-    // SAFETY: both return the calling thread's errno slot.
-    unsafe {
-        #[cfg(target_os = "linux")]
-        return libc::__errno_location();
-        #[cfg(target_os = "macos")]
-        return libc::__error();
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+unsafe fn registers(ucontext: &libc::ucontext_t) -> (usize, usize) {
+    let regs = &ucontext.uc_mcontext.gregs;
+    (
+        regs[libc::REG_RIP as usize] as usize,
+        regs[libc::REG_RSP as usize] as usize,
+    )
+}
+
+#[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+unsafe fn registers(ucontext: &libc::ucontext_t) -> (usize, usize) {
+    (
+        ucontext.uc_mcontext.pc as usize,
+        ucontext.uc_mcontext.sp as usize,
+    )
+}
+
+#[cfg(target_os = "macos")]
+unsafe fn registers(ucontext: &libc::ucontext_t) -> (usize, usize) {
+    if ucontext.uc_mcontext.is_null() {
+        return (0, 0);
     }
+    // SAFETY: non-null mcontext of a signal's ucontext.
+    let state = unsafe { &(*ucontext.uc_mcontext).__ss };
+    #[cfg(target_arch = "x86_64")]
+    let registers = (state.__rip as usize, state.__rsp as usize);
+    #[cfg(target_arch = "aarch64")]
+    let registers = (state.__pc as usize, state.__sp as usize);
+    registers
+}
+
+#[cfg(target_os = "linux")]
+fn errno_location() -> *mut c_int {
+    // SAFETY: returns the calling thread's errno slot.
+    unsafe { libc::__errno_location() }
+}
+
+#[cfg(target_os = "macos")]
+fn errno_location() -> *mut c_int {
+    // SAFETY: returns the calling thread's errno slot.
+    unsafe { libc::__error() }
 }
 
 extern "C" fn on_sigprof(_signal: c_int, _info: *mut libc::siginfo_t, ucontext: *mut c_void) {
@@ -143,7 +144,7 @@ extern "C" fn on_sigprof(_signal: c_int, _info: *mut libc::siginfo_t, ucontext: 
     if ACTIVE.load(Ordering::Relaxed) {
         // SAFETY: called from the SA_SIGINFO handler with its ucontext.
         let (pc, sp) = unsafe { interrupted(ucontext) };
-        let (link, labels) = super::context::current();
+        let (link, labels) = crate::context::current();
         RING.push(|sample| record(sample, pc, sp, link, labels));
     }
     // SAFETY: as above.

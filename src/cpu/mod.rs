@@ -1,7 +1,6 @@
 //! In-process CPU sampling at 100 Hz with our own SIGPROF handler, so each
 //! sample can carry the span and labels that were active when it was taken.
 
-pub(crate) mod context;
 mod ring;
 mod signal;
 
