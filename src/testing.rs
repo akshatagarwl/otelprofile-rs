@@ -3,6 +3,10 @@
 
 use std::fmt::Write as _;
 
+/// Tests that start the CPU sampler hold this: SIGPROF and its timer are
+/// process-wide.
+pub(crate) static SIGPROF: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 use opentelemetry_proto::tonic::collector::profiles::v1development::ExportProfilesServiceRequest;
 use opentelemetry_proto::tonic::common::v1::{AnyValue, any_value};
 use prost::Message;

@@ -33,6 +33,7 @@ pub(crate) struct Sample {
 
 /// Every sample type this crate sends. OTLP carries one per profile.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[allow(dead_code)] // the heap kinds arrive with the heap backends
 pub(crate) enum Kind {
     Cpu,
     Samples,
