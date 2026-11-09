@@ -236,11 +236,11 @@ impl Drop for Profiler {
 /// The sources that produce profiles each window.
 struct Sources {
     cpu: Option<crate::cpu::CpuSampler>,
-    #[cfg_attr(not(feature = "jemalloc"), allow(dead_code))]
     heap: Option<Heap>,
 }
 
 enum Heap {
+    Sampled(crate::heap::sampled::SampledHeap),
     #[cfg(feature = "jemalloc")]
     Jemalloc(crate::heap::jemalloc::JemallocHeap),
 }
@@ -288,7 +288,8 @@ impl Sources {
         let heap: Result<Vec<Profile>, String> = match &mut self.heap {
             #[cfg(feature = "jemalloc")]
             Some(Heap::Jemalloc(heap)) => heap.collect(symbolizer, start_nanos, unix_nanos(now)),
-            _ => Ok(Vec::new()),
+            Some(Heap::Sampled(heap)) => Ok(heap.collect(symbolizer, start_nanos, unix_nanos(now))),
+            None => Ok(Vec::new()),
         };
         match heap {
             Ok(heap) => profiles.extend(heap),
@@ -300,6 +301,9 @@ impl Sources {
 
 /// The heap backend this process can use, if any.
 fn heap_backend() -> Option<Heap> {
+    if let Some(rate) = crate::alloc::installed_rate() {
+        return Some(Heap::Sampled(crate::heap::sampled::SampledHeap::new(rate)));
+    }
     #[cfg(feature = "jemalloc")]
     if crate::heap::jemalloc::active() {
         return Some(Heap::Jemalloc(Default::default()));

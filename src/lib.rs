@@ -18,13 +18,12 @@
 //! Experimental. The OTLP Profiles signal is still in development
 //! (`/v1development/profiles`), so the wire format and this API will change.
 
+pub mod alloc;
 mod config;
 mod context;
 mod cpu;
 mod encode;
 mod export;
-// Without `jemalloc`, unused until the sampling allocator lands.
-#[cfg_attr(not(feature = "jemalloc"), allow(dead_code))]
 mod heap;
 mod labels;
 mod model;

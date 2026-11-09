@@ -75,7 +75,8 @@ mod tests {
     use std::time::Duration;
 
     use super::*;
-    use crate::testing::{burn, cpu_samples_of};
+    use crate::cpu::test_support::cpu_samples_of;
+    use crate::testing::burn;
 
     fn label<'a>(sample: &'a crate::model::Sample, key: &str) -> Option<&'a str> {
         sample

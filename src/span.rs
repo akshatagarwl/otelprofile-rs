@@ -87,8 +87,9 @@ mod tests {
     use tracing_opentelemetry::OpenTelemetrySpanExt;
     use tracing_subscriber::layer::SubscriberExt;
 
+    use crate::cpu::test_support::{cpu_samples_of, in_function};
     use crate::model::SpanLink;
-    use crate::testing::{burn, cpu_samples_of, in_function};
+    use crate::testing::burn;
 
     #[inline(never)]
     fn inside_the_span(budget: Duration) -> u64 {

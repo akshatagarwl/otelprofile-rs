@@ -4,6 +4,7 @@
 
 #[cfg(feature = "jemalloc")]
 pub(crate) mod jemalloc;
+pub(crate) mod sampled;
 
 use std::sync::Arc;
 
