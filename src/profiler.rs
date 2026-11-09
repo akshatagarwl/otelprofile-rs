@@ -602,10 +602,16 @@ mod tests {
             stale.len() >= 3,
             "final symbolization did not enqueue real signal samples"
         );
+        // pthread_getname_np exposes Linux's 15-byte native name limit.
+        let sampler_name: &[u8] = if cfg!(target_os = "linux") {
+            b"otelprofile-sam"
+        } else {
+            b"otelprofile-sampler"
+        };
         assert!(
             stale
                 .iter()
-                .all(|sample| sample.thread_name() == b"otelprofile-sampler")
+                .all(|sample| sample.thread_name() == sampler_name)
         );
         let mut inspect = Symbolizer::default();
         let interrupted: Vec<_> = stale
