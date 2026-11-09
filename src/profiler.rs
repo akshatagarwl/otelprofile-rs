@@ -534,9 +534,19 @@ mod tests {
         };
         let profiler = start_with_env(config, &|_| None).unwrap();
         let kept: Vec<Vec<u8>> = (0..256).map(|_| vec![0u8; 64 * 1024]).collect();
-        std::thread::sleep(Duration::from_millis(700));
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while receiver.requests().is_empty() {
+            assert!(
+                Instant::now() < deadline,
+                "no initial heap snapshot received"
+            );
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        // Allocation profiles are deltas; work before the first snapshot is only a baseline.
+        let allocated: Vec<Vec<u8>> = (0..256).map(|_| vec![1u8; 64 * 1024]).collect();
+        std::hint::black_box(&allocated);
         drop(profiler);
-        drop(kept);
+        drop((kept, allocated));
         let types: std::collections::BTreeSet<String> = receiver
             .requests()
             .iter()
