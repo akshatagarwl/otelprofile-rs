@@ -62,7 +62,7 @@ Enable `opentelemetry` and use OpenTelemetry 0.33 contexts or `tracing-opentelem
 
 Entering and leaving a context updates the sample link. Async spans should be instrumented per poll through `tracing`, not held as thread-local guards across `.await`. The crate does not export traces. Configure your existing trace SDK separately so the receiver can resolve the link.
 
-For another tracer, `span::enter(SpanLink { trace_id, span_id })` creates a thread-local guard. Use it only within synchronous code on the current thread. Drop guards in reverse order. `tag_wrapper(&[("route", "/checkout")], || work())` adds sample labels; `tag_future` applies labels during each future poll. Labels are independent of resource `Config::tags`.
+For another tracer, `span::enter(SpanLink { trace_id, span_id })` creates a thread-local guard. The guard is neither `Send` nor `Sync`; it cannot move to another thread. Use it only within synchronous code on the current thread. Drop guards in reverse order. `tag_wrapper(&[("route", "/checkout")], || work())` adds sample labels; `tag_future` applies labels during each future poll. Labels are independent of resource `Config::tags`.
 
 ## Configuration
 

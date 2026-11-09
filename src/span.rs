@@ -5,6 +5,8 @@
 //! one `tracing-opentelemetry` does when a span is entered) updates the link
 //! automatically. [`enter`] does the same by hand for any other tracer.
 
+use std::marker::PhantomData;
+
 use crate::context;
 use crate::model::SpanLink;
 
@@ -12,13 +14,27 @@ use crate::model::SpanLink;
 pub fn enter(link: SpanLink) -> SpanGuard {
     let (previous, labels) = context::get();
     context::set(Some(link), labels);
-    SpanGuard { previous }
+    SpanGuard {
+        previous,
+        _thread_bound: PhantomData,
+    }
 }
 
-/// Restores the previously active span when dropped.
+/// Restores the previously active span when dropped on its original thread.
+///
+/// A guard cannot move to another thread because it restores thread-local state.
+///
+/// ```compile_fail
+/// let guard = otelprofile::span::enter(otelprofile::SpanLink {
+///     trace_id: [1; 16],
+///     span_id: [2; 8],
+/// });
+/// std::thread::spawn(move || drop(guard));
+/// ```
 #[must_use = "the span is only active while the guard lives"]
 pub struct SpanGuard {
     previous: Option<SpanLink>,
+    _thread_bound: PhantomData<*mut ()>,
 }
 
 impl Drop for SpanGuard {
