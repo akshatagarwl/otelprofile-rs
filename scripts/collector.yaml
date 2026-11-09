@@ -1,0 +1,18 @@
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+exporters:
+  debug:
+    verbosity: basic
+  file:
+    path: /out/profiles.json
+service:
+  pipelines:
+    profiles:
+      receivers: [otlp]
+      exporters: [debug, file]
+    traces:
+      receivers: [otlp]
+      exporters: [debug]
