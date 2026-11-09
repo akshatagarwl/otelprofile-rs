@@ -52,6 +52,19 @@ jobs:
         working-directory: docs/assets/src
       - run: git diff --exit-code -- docs/assets
 
+  cpu-timer-probe:
+    strategy:
+      matrix:
+        os: [macos-latest, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: compare raw kernel timer delivery without native unwinding
+        run: |
+          sysctl kern.clockrate
+          cc -O2 -std=c11 -Wall -Wextra -Werror -pthread scripts/cpu-timer-probe.c -o /tmp/cpu-timer-probe
+          for hz in 40 60 100 200; do /tmp/cpu-timer-probe "$hz"; done
+
   msrv:
     runs-on: ubuntu-latest
     steps:
