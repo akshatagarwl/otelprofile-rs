@@ -3,7 +3,8 @@
   "type": "module",
   "scripts": {
     "generate": "node generate.mjs",
-    "screenshots": "node screenshots.mjs"
+    "screenshots": "node screenshots.mjs",
+    "check-readme": "node check-readme.mjs"
   },
   "dependencies": {
     "@fontsource/kalam": "5.3.0",

@@ -28,7 +28,7 @@ function drawing(title, height = 330) {
   const dot = (route, color, delay = 0) => parts.push(`<circle r="6" opacity="0" fill="${color}"><animateMotion path="${route}" dur="3s" begin="${delay}s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.1;0.9;1" dur="3s" begin="${delay}s" repeatCount="indefinite"/></circle>`);
   text(480, 42, title, 29);
   return {box, text, arrow, dot, save(name) {
-    fs.writeFileSync(path.join(out, name), `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 ${height}" role="img" aria-label="${esc(title)}"><style>@font-face{font-family:Kalam;src:url(data:font/woff2;base64,${font})}text{font-family:Kalam,cursive}@media(prefers-reduced-motion:reduce){circle{display:none}}</style><rect width="960" height="${height}" rx="16" fill="#fcfaf5"/>${parts.join('\n')}</svg>\n`);
+    fs.writeFileSync(path.join(out, name), `<svg xmlns="http://www.w3.org/2000/svg" width="960" height="${height}" viewBox="0 0 960 ${height}" role="img" aria-label="${esc(title)}"><style>@font-face{font-family:Kalam;src:url(data:font/woff2;base64,${font})}text{font-family:Kalam,cursive}@media(prefers-reduced-motion:reduce){circle{display:none}}</style><rect width="960" height="${height}" rx="16" fill="#fcfaf5"/>${parts.join('\n')}</svg>\n`);
   }};
 }
 
