@@ -5,6 +5,7 @@
 Initial experimental implementation. Not published to crates.io.
 
 - In-process CPU sampling at 100 Hz on Linux and macOS, x86-64 and ARM64.
+- CPU session generations prevent final-symbolization samples or late old producers from leaking into a restarted profiler; covered by deterministic receiver and producer-race regressions.
 - Heap profiles through jemalloc `heap_v2` dumps or `alloc::Sampled<A>` over any global allocator.
 - OpenTelemetry context observation, thread-bound manual span guards, synchronous labels, and per-poll async labels.
 - Standard OTLP Profiles development messages with request-wide dictionaries, per-sample links, CPU nanoseconds and counts, in-use snapshots, and allocation deltas.

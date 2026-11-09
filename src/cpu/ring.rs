@@ -15,6 +15,8 @@ const CAPACITY: usize = 1024;
 /// first, the leaf being the interrupted instruction itself.
 #[derive(Clone, Copy)]
 pub(crate) struct RawSample {
+    /// The active CPU sampler captured when this signal handler entered.
+    pub generation: u64,
     pub depth: u16,
     pub addrs: [usize; MAX_DEPTH],
     pub thread_name: [u8; THREAD_NAME_LEN],
@@ -27,6 +29,7 @@ pub(crate) struct RawSample {
 
 impl RawSample {
     pub(crate) const EMPTY: RawSample = RawSample {
+        generation: 0,
         depth: 0,
         addrs: [0; MAX_DEPTH],
         thread_name: [0; THREAD_NAME_LEN],
@@ -138,6 +141,23 @@ impl Ring {
             position = position.wrapping_add(1);
         }
         self.dequeue.store(position, Ordering::Relaxed);
+    }
+
+    /// Observes published slots without consuming them. Only the single consumer may inspect.
+    #[cfg(test)]
+    pub(crate) fn snapshot(&self) -> Vec<RawSample> {
+        let mut samples = Vec::new();
+        let mut position = self.dequeue.load(Ordering::Relaxed);
+        loop {
+            let slot = &self.slots[position % CAPACITY];
+            if slot.sequence.load(Ordering::Acquire) != position.wrapping_add(1) {
+                break;
+            }
+            // SAFETY: published slots cannot be reused until the sole consumer releases them.
+            samples.push(unsafe { *slot.sample.get() });
+            position = position.wrapping_add(1);
+        }
+        samples
     }
 
     /// Samples dropped because the ring was full, since the last call.

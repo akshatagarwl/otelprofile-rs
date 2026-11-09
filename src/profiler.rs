@@ -326,6 +326,14 @@ pub(crate) fn start(config: Config) -> Result<Profiler, Error> {
 }
 
 pub(crate) fn start_with_env(config: Config, env: Env<'_>) -> Result<Profiler, Error> {
+    start_with_symbolizer(config, env, Symbolizer::default())
+}
+
+fn start_with_symbolizer(
+    config: Config,
+    env: Env<'_>,
+    symbolizer: Symbolizer,
+) -> Result<Profiler, Error> {
     let Some((settings, export)) = settings(&config, env)? else {
         return Ok(Profiler::disabled());
     };
@@ -366,7 +374,7 @@ pub(crate) fn start_with_env(config: Config, env: Env<'_>) -> Result<Profiler, E
     let interval = settings.interval;
     let sampler = std::thread::Builder::new()
         .name("otelprofile-sampler".into())
-        .spawn(move || run(&types, interval, &stopped, &batches))
+        .spawn(move || run(&types, interval, &stopped, &batches, symbolizer))
         .map_err(|e| Error::Start(e.to_string()))?;
     profiler.stop = Some(stop);
     profiler.sampler = Some(sampler);
@@ -378,9 +386,9 @@ fn run(
     interval: Duration,
     stopped: &mpsc::Receiver<()>,
     batches: &SyncSender<Vec<Profile>>,
+    mut symbolizer: Symbolizer,
 ) {
     let mut sources = Sources::start(types);
-    let mut symbolizer = Symbolizer::default();
     let mut window_start = SystemTime::now();
     let mut next = Instant::now() + interval;
     loop {
@@ -519,6 +527,144 @@ mod tests {
     #[inline(never)]
     fn busy_in_the_end_to_end_test(budget: Duration) {
         std::hint::black_box(crate::testing::burn(budget));
+    }
+
+    fn wait_for_cpu_timer() {
+        let deadline = Instant::now() + Duration::from_secs(5);
+        loop {
+            // SAFETY: zero is a valid itimerval and getitimer receives a valid output pointer.
+            let mut timer: libc::itimerval = unsafe { std::mem::zeroed() };
+            // SAFETY: timer is a valid writable itimerval.
+            assert_eq!(unsafe { libc::getitimer(libc::ITIMER_PROF, &mut timer) }, 0);
+            if timer.it_interval.tv_sec != 0 || timer.it_interval.tv_usec != 0 {
+                return;
+            }
+            assert!(Instant::now() < deadline, "CPU timer did not start");
+            std::thread::sleep(Duration::from_millis(1));
+        }
+    }
+
+    #[inline(never)]
+    fn sample_in_fresh_instance(link: crate::SpanLink) {
+        let _span = crate::span::enter(link);
+        // SAFETY: the profiler installed its SIGPROF handler and is still active.
+        assert_eq!(unsafe { libc::raise(libc::SIGPROF) }, 0);
+    }
+
+    #[test]
+    fn final_symbolization_samples_cannot_leak_into_a_restarted_profiler() {
+        let _sigprof = SIGPROF.lock().unwrap_or_else(|e| e.into_inner());
+        let old = crate::SpanLink {
+            trace_id: [0x11; 16],
+            span_id: [0x22; 8],
+        };
+        let fresh = crate::SpanLink {
+            trace_id: [0x33; 16],
+            span_id: [0x44; 8],
+        };
+        let first_receiver = MockReceiver::start(vec![]);
+        let config = |receiver: &MockReceiver, service: &str| Config {
+            service_name: service.into(),
+            endpoint: receiver.url.clone(),
+            profile_types: vec![ProfileType::Cpu],
+            interval: Duration::from_secs(3600),
+            ..Default::default()
+        };
+        let mut symbolizer = Symbolizer::default();
+        let (resolved_tx, resolved_rx) = mpsc::channel();
+        symbolizer.before_next_resolve(move || {
+            let _span = crate::span::enter(old);
+            for _ in 0..3 {
+                // SAFETY: invoked inside final symbolization before the first CPU sampler stops.
+                assert_eq!(unsafe { libc::raise(libc::SIGPROF) }, 0);
+            }
+            resolved_tx.send(()).unwrap();
+        });
+        let first = start_with_symbolizer(
+            config(&first_receiver, "first-session"),
+            &|_| None,
+            symbolizer,
+        )
+        .unwrap();
+        wait_for_cpu_timer();
+        sample_in_fresh_instance(fresh);
+        first.stop();
+        resolved_rx
+            .try_recv()
+            .expect("final symbolization hook did not run");
+
+        let queued = crate::cpu::test_support::queued_samples();
+        let stale: Vec<_> = queued
+            .iter()
+            .filter(|sample| sample.link == Some(old))
+            .collect();
+        assert!(
+            stale.len() >= 3,
+            "final symbolization did not enqueue real signal samples"
+        );
+        assert!(
+            stale
+                .iter()
+                .all(|sample| sample.thread_name() == b"otelprofile-sampler")
+        );
+        let mut inspect = Symbolizer::default();
+        let interrupted: Vec<_> = stale
+            .iter()
+            .flat_map(|sample| inspect.stack(sample.addrs(), true))
+            .map(|frame| frame.function)
+            .collect();
+        assert!(
+            interrupted
+                .iter()
+                .any(|name| name.contains("symbolize::Symbolizer") && name.ends_with("::address")),
+            "queued samples did not interrupt address symbolization: {interrupted:?}"
+        );
+
+        let second_receiver = MockReceiver::start(vec![]);
+        let second = start_with_env(config(&second_receiver, "second-session"), &|_| None).unwrap();
+        wait_for_cpu_timer();
+        std::thread::Builder::new()
+            .name("fresh-instance".into())
+            .spawn(move || sample_in_fresh_instance(fresh))
+            .unwrap()
+            .join()
+            .unwrap();
+        second.stop();
+        let samples: Vec<_> = second_receiver
+            .requests()
+            .iter()
+            .flat_map(|request| decode(&request.body).profiles)
+            .filter(|profile| profile.sample_type.0 == "cpu")
+            .flat_map(|profile| profile.samples)
+            .collect();
+        let old_link = format!("{}/{}", "11".repeat(16), "22".repeat(8));
+        let fresh_link = format!("{}/{}", "33".repeat(16), "44".repeat(8));
+        assert!(
+            samples
+                .iter()
+                .any(|sample| sample.link.as_deref() == Some(&fresh_link)
+                    && sample
+                        .attributes
+                        .iter()
+                        .any(|(key, value)| key == "thread.name" && value == "fresh-instance")
+                    && sample
+                        .frames
+                        .iter()
+                        .any(|frame| frame.contains("sample_in_fresh_instance"))),
+            "fresh thread attribution missing: {samples:?}"
+        );
+        let leaked = samples
+            .iter()
+            .filter(|sample| sample.link.as_deref() == Some(&old_link))
+            .count();
+        eprintln!(
+            "lifecycle: {} queued signals during final symbolization; {leaked} stale encoded samples in second instance",
+            stale.len()
+        );
+        assert_eq!(
+            leaked, 0,
+            "first profiler's final-symbolization samples leaked into second profiler: {samples:?}"
+        );
     }
 
     #[cfg(feature = "jemalloc")]

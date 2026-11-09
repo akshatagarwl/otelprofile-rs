@@ -26,8 +26,17 @@ jobs:
       - uses: actions/checkout@v7.0.1
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+      - name: CPU session ownership regressions
+        run: |
+          cargo test final_symbolization_samples_cannot_leak -- --nocapture
+          cargo test delayed_old_producer_cannot_cross_generations -- --nocapture
+          cargo test --all-features final_symbolization_samples_cannot_leak -- --nocapture
+          cargo test --all-features delayed_old_producer_cannot_cross_generations -- --nocapture
       - run: cargo test --workspace --all-features
       - run: cargo test --workspace
+      - name: isolated CPU thread and time attribution
+        if: always()
+        run: cargo test cpu_burned_on_a_thread_is_attributed_to_its_function_and_time -- --nocapture
 
   lint:
     runs-on: ubuntu-latest

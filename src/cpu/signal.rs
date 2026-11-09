@@ -9,12 +9,15 @@
 
 use std::ffi::{c_int, c_void};
 use std::sync::OnceLock;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 use super::ring::{MAX_DEPTH, RawSample, Ring, THREAD_NAME_LEN};
 
 pub(crate) static RING: Ring = Ring::new();
-static ACTIVE: AtomicBool = AtomicBool::new(false);
+// Zero is stopped. A handler retains this identity even if stop/start happens
+// before it publishes, rather than borrowing the next sampler's ownership.
+static ACTIVE_GENERATION: AtomicU64 = AtomicU64::new(0);
+static NEXT_GENERATION: AtomicU64 = AtomicU64::new(1);
 static INSTALLED: AtomicBool = AtomicBool::new(false);
 
 /// Libraries whose code is not unwound from a signal handler, because the
@@ -141,11 +144,15 @@ extern "C" fn on_sigprof(_signal: c_int, _info: *mut libc::siginfo_t, ucontext: 
     let errno = errno_location();
     // SAFETY: errno_location points at this thread's errno.
     let saved = unsafe { *errno };
-    if ACTIVE.load(Ordering::Relaxed) {
+    let generation = ACTIVE_GENERATION.load(Ordering::Acquire);
+    if generation != 0 {
         // SAFETY: called from the SA_SIGINFO handler with its ucontext.
         let (pc, sp) = unsafe { interrupted(ucontext) };
         let (link, labels) = crate::context::current();
-        RING.push(|sample| record(sample, pc, sp, link, labels));
+        RING.push(|sample| {
+            sample.generation = generation;
+            record(sample, pc, sp, link, labels);
+        });
     }
     // SAFETY: as above.
     unsafe { *errno = saved };
@@ -210,7 +217,7 @@ fn record(
 }
 
 /// Installs the handler (once per process) and starts the timer.
-pub(crate) fn start(hz: u32) -> Result<(), String> {
+pub(crate) fn start(hz: u32) -> Result<u64, String> {
     if !INSTALLED.load(Ordering::Acquire) {
         find_blocked_segments();
         warm_up();
@@ -234,15 +241,24 @@ pub(crate) fn start(hz: u32) -> Result<(), String> {
         }
         INSTALLED.store(true, Ordering::Release);
     }
-    ACTIVE.store(true, Ordering::Relaxed);
-    set_timer(1_000_000 / hz.max(1) as i64)
+    let generation = NEXT_GENERATION
+        .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |next| {
+            next.checked_add(1)
+        })
+        .map_err(|_| "CPU sampler generation exhausted".to_string())?;
+    ACTIVE_GENERATION.store(generation, Ordering::Release);
+    if let Err(error) = set_timer(1_000_000 / hz.max(1) as i64) {
+        ACTIVE_GENERATION.store(0, Ordering::Release);
+        return Err(error);
+    }
+    Ok(generation)
 }
 
 /// Stops the timer. The handler stays installed: a SIGPROF still in flight
 /// would otherwise hit the default action and end the process.
 pub(crate) fn stop() {
+    ACTIVE_GENERATION.store(0, Ordering::Release);
     let _ = set_timer(0);
-    ACTIVE.store(false, Ordering::Relaxed);
 }
 
 fn set_timer(micros: i64) -> Result<(), String> {

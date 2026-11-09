@@ -24,14 +24,20 @@ struct Key {
 
 /// Owns the process's CPU timer while it lives.
 pub(crate) struct CpuSampler {
+    generation: u64,
     counts: HashMap<Key, i64>,
     threads: HashMap<Vec<u8>, Arc<str>>,
 }
 
 impl CpuSampler {
     pub(crate) fn start() -> Result<Self, String> {
-        signal::start(HZ)?;
+        // Free old queued slots; a preempted old producer can still publish later,
+        // so drain must also check the generation captured by its handler.
+        signal::RING.drain(|_| {});
+        signal::RING.take_dropped();
+        let generation = signal::start(HZ)?;
         Ok(Self {
+            generation,
             counts: HashMap::new(),
             threads: HashMap::new(),
         })
@@ -40,8 +46,15 @@ impl CpuSampler {
     /// Moves samples from the ring into this window's counts. Call often
     /// enough that the ring (1024 samples) does not fill.
     pub(crate) fn drain(&mut self) {
-        let Self { counts, threads } = self;
+        let Self {
+            generation,
+            counts,
+            threads,
+        } = self;
         signal::RING.drain(|raw| {
+            if raw.generation != *generation {
+                return;
+            }
             let thread = threads
                 .entry(raw.thread_name().to_vec())
                 .or_insert_with_key(|name| Arc::from(String::from_utf8_lossy(name)))
@@ -151,6 +164,75 @@ mod tests {
         x
     }
 
+    #[test]
+    fn delayed_old_producer_cannot_cross_generations() {
+        let _sigprof = crate::testing::SIGPROF
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let first = CpuSampler::start().unwrap();
+        let old_generation = first.generation;
+        let old_link = SpanLink {
+            trace_id: [0x51; 16],
+            span_id: [0x52; 8],
+        };
+        let fresh_link = SpanLink {
+            trace_id: [0x61; 16],
+            span_id: [0x62; 8],
+        };
+        let (claimed_tx, claimed_rx) = std::sync::mpsc::channel();
+        let (release_tx, release_rx) = std::sync::mpsc::channel();
+        let producer = std::thread::spawn(move || {
+            signal::RING.push(|sample| {
+                *sample = ring::RawSample::EMPTY;
+                sample.generation = old_generation;
+                sample.link = Some(old_link);
+                sample.depth = 1;
+                sample.addrs[0] =
+                    delayed_old_producer_cannot_cross_generations as *const () as usize;
+                claimed_tx.send(()).unwrap();
+                release_rx.recv().unwrap();
+            })
+        });
+        claimed_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+        drop(first);
+        let mut second = CpuSampler::start().unwrap();
+        assert_ne!(second.generation, old_generation);
+        signal::RING.push(|sample| {
+            *sample = ring::RawSample::EMPTY;
+            sample.generation = second.generation;
+            sample.link = Some(fresh_link);
+            sample.depth = 1;
+            sample.addrs[0] = delayed_old_producer_cannot_cross_generations as *const () as usize;
+        });
+        release_tx.send(()).unwrap();
+        producer.join().unwrap();
+        let pending = signal::RING.snapshot();
+        assert!(
+            pending
+                .iter()
+                .any(|sample| sample.generation == old_generation)
+        );
+        assert!(
+            pending
+                .iter()
+                .any(|sample| sample.generation == second.generation)
+        );
+        second.drain();
+        assert!(
+            !second.counts.keys().any(|key| key.link == Some(old_link)),
+            "old producer was charged to new sampler"
+        );
+        assert_eq!(
+            second
+                .counts
+                .iter()
+                .filter(|(key, _)| key.link == Some(fresh_link))
+                .map(|(_, count)| count)
+                .sum::<i64>(),
+            1
+        );
+    }
+
     /// The real sampler end to end: CPU burned on a named thread shows up
     /// under that thread, in the burning function, at about the CPU time
     /// the thread really used.
@@ -192,6 +274,9 @@ mod tests {
         let total: i64 = mine.iter().map(|s| s.value).sum();
         let all_threads: i64 = cpu.samples.iter().map(|s| s.value).sum();
         let ratio = total as f64 / used.as_nanos() as f64;
+        eprintln!(
+            "CPU attribution: burner {total} ns vs used {used:?} (ratio {ratio:.3}); all threads {all_threads} ns"
+        );
         // ITIMER_PROF is charged per scheduler tick, CLOCK_THREAD_CPUTIME_ID
         // exactly; on a VM with steal time the timer reads high (1.33 seen on
         // a GitHub arm64 runner). The bound catches broken sampling, not
@@ -237,6 +322,10 @@ mod tests {
 #[cfg(test)]
 #[allow(dead_code)] // some helpers are used only by feature-gated tests
 pub(crate) mod test_support {
+    pub(crate) fn queued_samples() -> Vec<super::ring::RawSample> {
+        super::signal::RING.snapshot()
+    }
+
     /// Runs `work` under the real CPU sampler and returns the window's CPU
     /// samples taken on the calling thread.
     pub(crate) fn cpu_samples_of(work: impl FnOnce()) -> Vec<crate::model::Sample> {

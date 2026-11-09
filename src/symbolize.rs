@@ -11,6 +11,8 @@ use crate::model::Frame;
 pub(crate) struct Symbolizer {
     addresses: HashMap<usize, Arc<[Frame]>>,
     strings: HashMap<String, Arc<str>>,
+    #[cfg(test)]
+    before_resolve: Option<Box<dyn FnOnce() + Send>>,
 }
 
 impl Symbolizer {
@@ -39,11 +41,20 @@ impl Symbolizer {
         interned
     }
 
+    #[cfg(test)]
+    pub(crate) fn before_next_resolve(&mut self, hook: impl FnOnce() + Send + 'static) {
+        self.before_resolve = Some(Box::new(hook));
+    }
+
     /// The frames at one address: inlined functions first, then the
     /// function they were inlined into.
     fn address(&mut self, addr: usize) -> Arc<[Frame]> {
         if let Some(frames) = self.addresses.get(&addr) {
             return frames.clone();
+        }
+        #[cfg(test)]
+        if let Some(hook) = self.before_resolve.take() {
+            hook();
         }
         let mut resolved = Vec::new();
         backtrace::resolve(addr as *mut std::ffi::c_void, |symbol| {
