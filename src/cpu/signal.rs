@@ -241,11 +241,21 @@ pub(crate) fn start(hz: u32) -> Result<u64, String> {
         }
         INSTALLED.store(true, Ordering::Release);
     }
-    let generation = NEXT_GENERATION
-        .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |next| {
-            next.checked_add(1)
-        })
-        .map_err(|_| "CPU sampler generation exhausted".to_string())?;
+    let mut generation = NEXT_GENERATION.load(Ordering::Relaxed);
+    loop {
+        let next = generation
+            .checked_add(1)
+            .ok_or_else(|| "CPU sampler generation exhausted".to_string())?;
+        match NEXT_GENERATION.compare_exchange_weak(
+            generation,
+            next,
+            Ordering::Relaxed,
+            Ordering::Relaxed,
+        ) {
+            Ok(_) => break,
+            Err(current) => generation = current,
+        }
+    }
     ACTIVE_GENERATION.store(generation, Ordering::Release);
     if let Err(error) = set_timer(1_000_000 / hz.max(1) as i64) {
         ACTIVE_GENERATION.store(0, Ordering::Release);
