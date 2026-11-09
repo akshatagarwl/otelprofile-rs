@@ -12,7 +12,7 @@ categories = ["development-tools::profiling"]
 exclude = ["/.github", "/docs/assets/src", "/evidence"]
 
 [workspace]
-members = ["examples/demo"]
+members = ["examples/demo", "examples/soak"]
 
 [dependencies]
 backtrace = "0.3.77"

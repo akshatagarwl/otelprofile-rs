@@ -1,3 +1,5 @@
 /target
 Cargo.lock.bak
 node_modules/
+__pycache__/
+*.pyc

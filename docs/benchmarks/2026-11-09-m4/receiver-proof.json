@@ -1,0 +1,252 @@
+[
+  {
+    "run": "r1-jemalloc-otel-all.json",
+    "service": "rust-soak-13406",
+    "totals": {
+      "inuse_objects": 1167,
+      "samples": 1224,
+      "alloc_space": 714403655,
+      "alloc_objects": 221036,
+      "cpu": 12240000000,
+      "inuse_space": 16361577
+    },
+    "workload_frames": 108
+  },
+  {
+    "run": "r1-jemalloc-otel-cpu.json",
+    "service": "rust-soak-13121",
+    "totals": {
+      "samples": 1748,
+      "cpu": 17480000000
+    },
+    "workload_frames": 60
+  },
+  {
+    "run": "r1-jemalloc-pyroscope-all.json",
+    "service": "rust-soak-13525",
+    "totals": {
+      "process_cpu:cpu:nanoseconds:cpu:nanoseconds": 1160000000,
+      "memory:inuse_space:bytes:space:bytes": 59847896
+    }
+  },
+  {
+    "run": "r1-jemalloc-pyroscope-cpu.json",
+    "service": "rust-soak-13142",
+    "totals": {
+      "process_cpu:cpu:nanoseconds:cpu:nanoseconds": 1100000000
+    }
+  },
+  {
+    "run": "r1-sampled-otel-all.json",
+    "service": "rust-soak-13641",
+    "totals": {
+      "inuse_objects": 376645,
+      "samples": 1543,
+      "alloc_space": 3640222662,
+      "alloc_objects": 873772,
+      "cpu": 15430000000,
+      "inuse_space": 17955819
+    },
+    "workload_frames": 82
+  },
+  {
+    "run": "r2-jemalloc-otel-all.json",
+    "service": "rust-soak-14128",
+    "totals": {
+      "inuse_objects": 821,
+      "samples": 1728,
+      "alloc_space": 1152016968,
+      "alloc_objects": 270180,
+      "cpu": 17280000000,
+      "inuse_space": 12117880
+    },
+    "workload_frames": 68
+  },
+  {
+    "run": "r2-jemalloc-otel-cpu.json",
+    "service": "rust-soak-14263",
+    "totals": {
+      "samples": 1834,
+      "cpu": 18340000000
+    },
+    "workload_frames": 44
+  },
+  {
+    "run": "r2-jemalloc-pyroscope-all.json",
+    "service": "rust-soak-13982",
+    "totals": {
+      "process_cpu:cpu:nanoseconds:cpu:nanoseconds": 820000000,
+      "memory:inuse_space:bytes:space:bytes": 65682981
+    }
+  },
+  {
+    "run": "r2-jemalloc-pyroscope-cpu.json",
+    "service": "rust-soak-14163",
+    "totals": {
+      "process_cpu:cpu:nanoseconds:cpu:nanoseconds": 3930000000
+    }
+  },
+  {
+    "run": "r2-sampled-otel-all.json",
+    "service": "rust-soak-13805",
+    "totals": {
+      "inuse_objects": 376732,
+      "samples": 1868,
+      "alloc_space": 4477847941,
+      "alloc_objects": 1056501,
+      "cpu": 18680000000,
+      "inuse_space": 19559619
+    },
+    "workload_frames": 88
+  },
+  {
+    "run": "r3-jemalloc-otel-all.json",
+    "service": "rust-soak-15323",
+    "totals": {
+      "inuse_objects": 1215,
+      "samples": 1708,
+      "alloc_space": 1224770645,
+      "alloc_objects": 266853,
+      "cpu": 17080000000,
+      "inuse_space": 17484881
+    },
+    "workload_frames": 80
+  },
+  {
+    "run": "r3-jemalloc-otel-cpu.json",
+    "service": "rust-soak-15159",
+    "totals": {
+      "samples": 1773,
+      "cpu": 17730000000
+    },
+    "workload_frames": 52
+  },
+  {
+    "run": "r3-jemalloc-pyroscope-all.json",
+    "service": "rust-soak-15352",
+    "totals": {
+      "process_cpu:cpu:nanoseconds:cpu:nanoseconds": 2290000000,
+      "memory:inuse_space:bytes:space:bytes": 58876403
+    }
+  },
+  {
+    "run": "r3-jemalloc-pyroscope-cpu.json",
+    "service": "rust-soak-15201",
+    "totals": {
+      "process_cpu:cpu:nanoseconds:cpu:nanoseconds": 5620000000
+    }
+  },
+  {
+    "run": "r3-sampled-otel-all.json",
+    "service": "rust-soak-15472",
+    "totals": {
+      "inuse_objects": 376689,
+      "samples": 1868,
+      "alloc_space": 4450698937,
+      "alloc_objects": 1171642,
+      "cpu": 18680000000,
+      "inuse_space": 16461270
+    },
+    "workload_frames": 84
+  },
+  {
+    "run": "r4-jemalloc-otel-all.json",
+    "service": "rust-soak-16109",
+    "totals": {
+      "inuse_objects": 1078,
+      "samples": 1874,
+      "alloc_space": 1188630719,
+      "alloc_objects": 266102,
+      "cpu": 18740000000,
+      "inuse_space": 13261555
+    },
+    "workload_frames": 72
+  },
+  {
+    "run": "r4-jemalloc-otel-cpu.json",
+    "service": "rust-soak-16292",
+    "totals": {
+      "samples": 1901,
+      "cpu": 19010000000
+    },
+    "workload_frames": 66
+  },
+  {
+    "run": "r4-jemalloc-pyroscope-all.json",
+    "service": "rust-soak-15921",
+    "totals": {
+      "process_cpu:cpu:nanoseconds:cpu:nanoseconds": 7730000000,
+      "memory:inuse_space:bytes:space:bytes": 63492314
+    }
+  },
+  {
+    "run": "r4-jemalloc-pyroscope-cpu.json",
+    "service": "rust-soak-16130",
+    "totals": {
+      "process_cpu:cpu:nanoseconds:cpu:nanoseconds": 6180000000
+    }
+  },
+  {
+    "run": "r4-sampled-otel-all.json",
+    "service": "rust-soak-15673",
+    "totals": {
+      "inuse_objects": 376349,
+      "samples": 1875,
+      "alloc_space": 4437228993,
+      "alloc_objects": 1137527,
+      "cpu": 18750000000,
+      "inuse_space": 15343315
+    },
+    "workload_frames": 90
+  },
+  {
+    "run": "r5-jemalloc-otel-all.json",
+    "service": "rust-soak-16541",
+    "totals": {
+      "inuse_objects": 1468,
+      "samples": 1915,
+      "alloc_space": 1213044216,
+      "alloc_objects": 263801,
+      "cpu": 19150000000,
+      "inuse_space": 20074812
+    },
+    "workload_frames": 60
+  },
+  {
+    "run": "r5-jemalloc-otel-cpu.json",
+    "service": "rust-soak-16445",
+    "totals": {
+      "samples": 1890,
+      "cpu": 18900000000
+    },
+    "workload_frames": 42
+  },
+  {
+    "run": "r5-jemalloc-pyroscope-all.json",
+    "service": "rust-soak-16561",
+    "totals": {
+      "process_cpu:cpu:nanoseconds:cpu:nanoseconds": 6430000000,
+      "memory:inuse_space:bytes:space:bytes": 74822069
+    }
+  },
+  {
+    "run": "r5-jemalloc-pyroscope-cpu.json",
+    "service": "rust-soak-16458",
+    "totals": {
+      "process_cpu:cpu:nanoseconds:cpu:nanoseconds": 1040000000
+    }
+  },
+  {
+    "run": "r5-sampled-otel-all.json",
+    "service": "rust-soak-16610",
+    "totals": {
+      "inuse_objects": 376418,
+      "samples": 1933,
+      "alloc_space": 4617728344,
+      "alloc_objects": 1036299,
+      "cpu": 19330000000,
+      "inuse_space": 15305087
+    },
+    "workload_frames": 64
+  }
+]

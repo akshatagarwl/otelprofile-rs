@@ -1,0 +1,21 @@
+{
+  "date": "2026-11-09",
+  "cpu": "Apple M4",
+  "os": "Darwin 27.0.0",
+  "rustc": "rustc 1.97.1 (8bab26f4f 2026-07-14)",
+  "base_commit": "bbfa987deabf46b2c96fd1feba75506cd423c334",
+  "profile": "release, default settings, optimized, no debug info",
+  "pyroscope_rs": "2.1.5",
+  "pyroscope_server": "2.4.3",
+  "sigiro_commit": "3c801fb",
+  "rounds": 5,
+  "seconds_per_run": 20,
+  "interval_s": 15,
+  "cpu_hz": 100,
+  "heap_mean_bytes": 524288,
+  "binary_sha256": {
+    "soak-sampled": "ea430678a4c7a914ca2d6a3e6c92a8ede40940e1cf81468be36690d12c5b4347",
+    "soak-system": "42e5c12d074d399392e89fd0e194f0ecf957e139e40c7dfeadd4424f5273aa95",
+    "soak-jemalloc": "36d5fbe9577d7b79512d012797ed475bc87d52ce40c66801c13f0a89547beb63"
+  }
+}
