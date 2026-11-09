@@ -1,0 +1,26 @@
+name: macos-cpu-investigation
+on:
+  push:
+    branches: [fix/macos-cpu-timer]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15-intel, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - run: |
+          uname -a
+          sysctl kern.clockrate
+          cc -O2 -std=c11 -Wall -Wextra -Werror -pthread scripts/macos-cpu-investigation.c -o /tmp/probe
+          for round in 1 2 3; do
+            for hz in 60 100 200; do
+              /tmp/probe native "$hz"
+              /tmp/probe syscall "$hz"
+            done
+          done
