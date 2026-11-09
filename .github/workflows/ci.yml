@@ -46,3 +46,21 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.85
       - uses: Swatinem/rust-cache@v2
       - run: cargo check --workspace --all-features
+
+  conformance:
+    name: profcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-go@v7.0.0
+        with:
+          go-version: "1.27.x"
+          cache: false
+      - name: install profcheck
+        run: go install github.com/open-telemetry/sig-profiling/profcheck/cmd/profcheck@668bf42ffd459941cbd1fc1977c63384eaeaa73a
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: every encoded request passes profcheck
+        env:
+          OTELPROFILE_REQUIRE_PROFCHECK: "1"
+        run: cargo test --all-features profcheck

@@ -1,0 +1,16 @@
+resource [("service.name", "checkout"), ("process.pid", "42")]
+scope ("otelprofile", "0.1.0")
+profile cpu/nanoseconds period 10000000 cpu/nanoseconds at 1000 for 10000000000
+  30000000 attrs=[("thread.name", "worker")] link=11111111111111111111111111111111/2222222222222222
+    app::hash src/main.rs:10
+    app::handle src/main.rs:20
+    main src/main.rs:1
+  10000000 attrs=[("thread.name", "worker"), ("endpoint", "/pay")] link=-
+    app::parse src/main.rs:30
+    app::handle src/main.rs:21
+    main src/main.rs:1
+profile inuse_space/bytes period 524288 space/bytes at 2000 for 0
+  4096 attrs=[] link=-
+    app::hash src/main.rs:10
+    app::handle src/main.rs:20
+    main src/main.rs:1
