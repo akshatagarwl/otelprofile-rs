@@ -5,6 +5,8 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+env:
+  RUSTFLAGS: -D warnings
 jobs:
   native:
     strategy:
@@ -25,3 +27,46 @@ jobs:
               /tmp/probe mixed "$hz"
             done
           done
+
+  resolution:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15-intel, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: diagnostic only - unchanged accuracy tests at actual matching periods
+        shell: bash
+        run: |
+          for hz in 100 20 10; do
+            git checkout -- src/cpu/mod.rs
+            HZ="$hz" python3 - <<'PY'
+          import os
+          from pathlib import Path
+          path = Path('src/cpu/mod.rs')
+          old = 'pub(crate) const HZ: u32 = 100;'
+          text = path.read_text()
+          assert text.count(old) == 1
+          path.write_text(text.replace(old, 'pub(crate) const HZ: u32 = ' + os.environ['HZ'] + ';'))
+          PY
+            git diff -- src/cpu/mod.rs
+            cargo test --all-features --lib --no-run
+            for round in 1 2 3 4 5 6; do
+              echo "DIAGNOSTIC hz=$hz repetition=$round"
+              if cargo test --all-features --lib cpu_burned_on_a_thread_is_attributed_to_its_function_and_time -- --nocapture; then
+                echo "DIAGNOSTIC result=pass hz=$hz repetition=$round"
+              else
+                echo "DIAGNOSTIC result=fail hz=$hz repetition=$round"
+              fi
+            done
+            if cargo test --all-features --lib -- --nocapture; then
+              echo "DIAGNOSTIC unit-suite=pass hz=$hz"
+            else
+              echo "DIAGNOSTIC unit-suite=fail hz=$hz"
+            fi
+          done
+          git checkout -- src/cpu/mod.rs
+          git diff --exit-code
