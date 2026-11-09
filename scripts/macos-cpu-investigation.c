@@ -51,6 +51,10 @@ static void sample(int signal) {
     (void)signal;
     atomic_fetch_add_explicit(&all_samples, 1, memory_order_relaxed);
     if (worker_thread) atomic_fetch_add_explicit(&worker_samples, 1, memory_order_relaxed);
+    if (strcmp(mode, "handler-syscall") == 0) {
+        struct rusage ru;
+        (void)getrusage(RUSAGE_SELF, &ru);
+    }
 }
 
 static void *burn(void *unused) {
@@ -81,7 +85,7 @@ int main(int argc, char **argv) {
     assert(argc == 3);
     mode = argv[1];
     const unsigned long hz = strtoul(argv[2], NULL, 10);
-    assert(hz > 0 && hz <= 1000);
+    assert(hz > 0 && hz <= 10000);
     struct sigaction action = {0};
     action.sa_handler = sample;
     action.sa_flags = SA_RESTART;

@@ -19,8 +19,9 @@ jobs:
           sysctl kern.clockrate
           cc -O2 -std=c11 -Wall -Wextra -Werror -pthread scripts/macos-cpu-investigation.c -o /tmp/probe
           for round in 1 2 3; do
-            for hz in 60 100 200; do
+            for hz in 100 1000 10000; do
               /tmp/probe native "$hz"
               /tmp/probe syscall "$hz"
+              /tmp/probe handler-syscall "$hz"
             done
           done
