@@ -72,6 +72,9 @@ static void *burn(void *unused) {
         if (strcmp(mode, "syscall") == 0) {
             struct rusage ru;
             assert(getrusage(RUSAGE_SELF, &ru) == 0);
+        } else if (strcmp(mode, "mixed") == 0 && loops % 200 == 0) {
+            struct timespec ts = {0, 1000000};
+            nanosleep(&ts, NULL);
         }
         loops++;
     } while (seconds(CLOCK_MONOTONIC) < until);
