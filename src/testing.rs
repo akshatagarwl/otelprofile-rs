@@ -305,12 +305,24 @@ impl MockReceiver {
     }
 }
 
-/// Burns CPU on the calling thread for `budget` of wall time.
+/// CPU time used by the calling thread.
+pub(crate) fn thread_cpu() -> std::time::Duration {
+    let mut ts = libc::timespec {
+        tv_sec: 0,
+        tv_nsec: 0,
+    };
+    // SAFETY: valid out pointer.
+    unsafe { libc::clock_gettime(libc::CLOCK_THREAD_CPUTIME_ID, &mut ts) };
+    std::time::Duration::new(ts.tv_sec as u64, ts.tv_nsec as u32)
+}
+
+/// Burns `budget` of CPU time on the calling thread, however long that
+/// takes on a busy machine.
 #[inline(never)]
 pub(crate) fn burn(budget: std::time::Duration) -> u64 {
-    let started = std::time::Instant::now();
+    let started = thread_cpu();
     let mut x = 1u64;
-    while started.elapsed() < budget {
+    while thread_cpu() - started < budget {
         for _ in 0..1_000_000 {
             x = std::hint::black_box(x.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1));
         }

@@ -236,6 +236,13 @@ impl Drop for Profiler {
 /// The sources that produce profiles each window.
 struct Sources {
     cpu: Option<crate::cpu::CpuSampler>,
+    #[cfg_attr(not(feature = "jemalloc"), allow(dead_code))]
+    heap: Option<Heap>,
+}
+
+enum Heap {
+    #[cfg(feature = "jemalloc")]
+    Jemalloc(crate::heap::jemalloc::JemallocHeap),
 }
 
 impl Sources {
@@ -247,10 +254,12 @@ impl Sources {
         } else {
             None
         };
-        if types.contains(&ProfileType::Heap) {
-            log::info!("otelprofile: no heap backend is active");
-        }
-        Self { cpu }
+        let heap = if types.contains(&ProfileType::Heap) {
+            heap_backend()
+        } else {
+            None
+        };
+        Self { cpu, heap }
     }
 
     fn drain(&mut self) {
@@ -276,8 +285,30 @@ impl Sources {
                 duration,
             ));
         }
+        let heap: Result<Vec<Profile>, String> = match &mut self.heap {
+            #[cfg(feature = "jemalloc")]
+            Some(Heap::Jemalloc(heap)) => heap.collect(symbolizer, start_nanos, unix_nanos(now)),
+            _ => Ok(Vec::new()),
+        };
+        match heap {
+            Ok(heap) => profiles.extend(heap),
+            Err(error) => log::warn!("otelprofile: heap profile failed: {error}"),
+        }
         profiles
     }
+}
+
+/// The heap backend this process can use, if any.
+fn heap_backend() -> Option<Heap> {
+    #[cfg(feature = "jemalloc")]
+    if crate::heap::jemalloc::active() {
+        return Some(Heap::Jemalloc(Default::default()));
+    }
+    log::info!(
+        "otelprofile: heap profiling is off: install otelprofile::alloc::Sampled as the global allocator, \
+         or use tikv-jemallocator with the `jemalloc` feature and jemalloc_profiling!()"
+    );
+    None
 }
 
 fn unix_nanos(t: SystemTime) -> u64 {
@@ -483,12 +514,38 @@ mod tests {
 
     #[inline(never)]
     fn busy_in_the_end_to_end_test(budget: Duration) {
-        let started = Instant::now();
-        let mut x = 1u64;
-        while started.elapsed() < budget {
-            for _ in 0..1_000_000 {
-                x = std::hint::black_box(x.wrapping_mul(31).wrapping_add(7));
-            }
+        std::hint::black_box(crate::testing::burn(budget));
+    }
+
+    #[cfg(feature = "jemalloc")]
+    #[test]
+    fn start_sends_jemalloc_heap_profiles() {
+        let _sigprof = SIGPROF.lock().unwrap_or_else(|e| e.into_inner());
+        let receiver = MockReceiver::start(vec![]);
+        let config = Config {
+            endpoint: receiver.url.clone(),
+            profile_types: vec![ProfileType::Heap],
+            interval: Duration::from_millis(300),
+            ..Config::default()
+        };
+        let profiler = start_with_env(config, &|_| None).unwrap();
+        let kept: Vec<Vec<u8>> = (0..256).map(|_| vec![0u8; 64 * 1024]).collect();
+        std::thread::sleep(Duration::from_millis(700));
+        drop(profiler);
+        drop(kept);
+        let types: std::collections::BTreeSet<String> = receiver
+            .requests()
+            .iter()
+            .flat_map(|r| decode(&r.body).profiles)
+            .map(|p| p.sample_type.0)
+            .collect();
+        for expected in [
+            "inuse_objects",
+            "inuse_space",
+            "alloc_objects",
+            "alloc_space",
+        ] {
+            assert!(types.contains(expected), "no {expected} in {types:?}");
         }
     }
 

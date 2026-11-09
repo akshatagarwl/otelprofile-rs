@@ -23,6 +23,9 @@ mod context;
 mod cpu;
 mod encode;
 mod export;
+// Without `jemalloc`, unused until the sampling allocator lands.
+#[cfg_attr(not(feature = "jemalloc"), allow(dead_code))]
+mod heap;
 mod labels;
 mod model;
 mod profiler;
@@ -38,6 +41,9 @@ compile_error!("otelprofile supports Linux and macOS only");
 use std::time::Duration;
 
 pub use config::ConfigError;
+#[cfg(feature = "jemalloc")]
+#[doc(hidden)]
+pub use heap::jemalloc::MallocConf;
 pub use labels::{Tagged, tag_future, tag_wrapper};
 pub use model::{AttributeValue, SpanLink};
 pub use profiler::Profiler;
@@ -109,3 +115,54 @@ impl std::error::Error for Error {}
 pub fn start(config: Config) -> Result<Profiler, Error> {
     profiler::start(config)
 }
+
+/// Turns on jemalloc's heap sampler from inside the program, so heap
+/// profiles work without setting `MALLOC_CONF` (or `_RJEM_MALLOC_CONF`).
+/// Use it once, next to `#[global_allocator]`:
+///
+/// ```ignore
+/// #[global_allocator]
+/// static ALLOC: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
+/// otelprofile::jemalloc_profiling!();
+/// ```
+///
+/// The default samples on average one allocation per 512 KiB
+/// (`lg_prof_sample:19`) and keeps cumulative counts (`prof_accum:true`) for
+/// the `alloc_*` profiles. Pass your own string to change it, for example
+/// `jemalloc_profiling!("prof:true,prof_active:true,lg_prof_sample:17")`.
+/// The environment variable, when set, still applies on top.
+#[cfg(feature = "jemalloc")]
+#[macro_export]
+macro_rules! jemalloc_profiling {
+    () => {
+        $crate::jemalloc_profiling!("prof:true,prof_active:true,prof_accum:true,lg_prof_sample:19");
+    };
+    ($conf:literal) => {
+        const _: () = {
+            const CONF: &::core::ffi::CStr = match ::core::ffi::CStr::from_bytes_with_nul(
+                ::core::concat!($conf, "\0").as_bytes(),
+            ) {
+                ::core::result::Result::Ok(conf) => conf,
+                ::core::result::Result::Err(_) => {
+                    ::core::panic!("malloc_conf must not contain NUL")
+                }
+            };
+            // tikv-jemallocator prefixes jemalloc's symbols with `_rjem_`
+            // unless built with `unprefixed_malloc_on_supported_platforms`;
+            // both names are set so either build reads it.
+            #[unsafe(export_name = "_rjem_malloc_conf")]
+            #[used]
+            static PREFIXED: $crate::MallocConf = $crate::MallocConf::new(CONF);
+            #[unsafe(export_name = "malloc_conf")]
+            #[used]
+            static UNPREFIXED: $crate::MallocConf = $crate::MallocConf::new(CONF);
+        };
+    };
+}
+
+#[cfg(all(test, feature = "jemalloc"))]
+#[global_allocator]
+static TEST_ALLOCATOR: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
+
+#[cfg(all(test, feature = "jemalloc"))]
+jemalloc_profiling!();
