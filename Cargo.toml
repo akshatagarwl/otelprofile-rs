@@ -15,9 +15,14 @@ exclude = ["/.github", "/docs/assets/src", "/evidence"]
 members = ["examples/demo"]
 
 [dependencies]
+flate2 = "1"
+httpdate = "1"
+log = "0.4"
 prost = "0.14"
+ureq = { version = "3.5", default-features = false, features = ["rustls"] }
 
 [dev-dependencies]
+tiny_http = "0.12"
 opentelemetry-proto = { version = "0.33.1", default-features = false, features = ["gen-tonic-messages", "profiles"] }
 
 [lints.rust]

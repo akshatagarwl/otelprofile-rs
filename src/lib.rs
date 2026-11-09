@@ -6,7 +6,9 @@
 // Wired into the public API by the exporter and samplers that follow.
 #![allow(dead_code)]
 
+mod config;
 mod encode;
+mod export;
 mod model;
 mod proto;
 #[cfg(test)]

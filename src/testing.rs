@@ -215,3 +215,86 @@ fn tempfile_path(extension: &str) -> std::path::PathBuf {
         NEXT.fetch_add(1, Ordering::Relaxed)
     ))
 }
+
+/// A local OTLP/HTTP receiver that answers from a script and records every
+/// request it gets (body gunzipped when sent with gzip).
+pub(crate) struct MockReceiver {
+    pub url: String,
+    requests: std::sync::Arc<std::sync::Mutex<Vec<Received>>>,
+    _thread: std::thread::JoinHandle<()>,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct Received {
+    pub headers: Vec<(String, String)>,
+    pub body: Vec<u8>,
+    pub at: std::time::Instant,
+}
+
+impl Received {
+    pub(crate) fn header(&self, name: &str) -> Option<&str> {
+        self.headers
+            .iter()
+            .find(|(k, _)| k.eq_ignore_ascii_case(name))
+            .map(|(_, v)| v.as_str())
+    }
+}
+
+/// One scripted answer: status, extra headers, body.
+pub(crate) type Reply = (u16, Vec<(&'static str, String)>, Vec<u8>);
+
+impl MockReceiver {
+    /// Answers with `script` in order, then 200 forever.
+    pub(crate) fn start(script: Vec<Reply>) -> Self {
+        let server = tiny_http::Server::http("127.0.0.1:0").unwrap();
+        let url = format!("http://{}/v1development/profiles", server.server_addr());
+        let requests = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let seen = requests.clone();
+        let thread = std::thread::spawn(move || {
+            let mut script = script.into_iter();
+            for mut request in server.incoming_requests() {
+                let mut body = Vec::new();
+                std::io::Read::read_to_end(request.as_reader(), &mut body).unwrap();
+                let headers: Vec<(String, String)> = request
+                    .headers()
+                    .iter()
+                    .map(|h| (h.field.to_string(), h.value.to_string()))
+                    .collect();
+                if headers
+                    .iter()
+                    .any(|(k, v)| k.eq_ignore_ascii_case("content-encoding") && v == "gzip")
+                {
+                    let mut out = Vec::new();
+                    std::io::Read::read_to_end(
+                        &mut flate2::read::GzDecoder::new(body.as_slice()),
+                        &mut out,
+                    )
+                    .unwrap();
+                    body = out;
+                }
+                seen.lock().unwrap().push(Received {
+                    headers,
+                    body,
+                    at: std::time::Instant::now(),
+                });
+                let (status, extra, reply) = script.next().unwrap_or((200, Vec::new(), Vec::new()));
+                let mut response = tiny_http::Response::from_data(reply).with_status_code(status);
+                for (k, v) in extra {
+                    response.add_header(
+                        tiny_http::Header::from_bytes(k.as_bytes(), v.as_bytes()).unwrap(),
+                    );
+                }
+                let _ = request.respond(response);
+            }
+        });
+        Self {
+            url,
+            requests,
+            _thread: thread,
+        }
+    }
+
+    pub(crate) fn requests(&self) -> Vec<Received> {
+        self.requests.lock().unwrap().clone()
+    }
+}
