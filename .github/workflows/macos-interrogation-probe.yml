@@ -1,0 +1,24 @@
+name: macos-interrogation-probe
+on:
+  push:
+    branches: [experiment/macos-interrogation]
+permissions:
+  contents: read
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15-intel, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - run: |
+          uname -a
+          cc -O2 -std=c11 -Wall -Wextra -Werror -pthread scripts/macos-cpu-investigation.c -o /tmp/probe
+          for round in 1 2 3; do
+            /tmp/probe native 100
+            /tmp/probe helper-control 100
+            /tmp/probe interrogate 100
+          done

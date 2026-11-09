@@ -18,7 +18,8 @@
 
 _Static_assert(ATOMIC_LONG_LOCK_FREE == 2, "lock-free signal counters required");
 static _Atomic unsigned long all_samples, worker_samples;
-static _Atomic int ready, running;
+static _Atomic int ready, running, done;
+static mach_port_t worker_port;
 static _Thread_local volatile sig_atomic_t worker_thread;
 static double used_cpu, mach_cpu, ru_cpu;
 static unsigned long loops;
@@ -60,6 +61,7 @@ static void sample(int signal) {
 static void *burn(void *unused) {
     (void)unused;
     worker_thread = 1;
+    worker_port = mach_thread_self();
     atomic_store(&ready, 1);
     while (!atomic_load(&running)) sched_yield();
     const double before = seconds(CLOCK_THREAD_CPUTIME_ID);
@@ -81,6 +83,7 @@ static void *burn(void *unused) {
     used_cpu = seconds(CLOCK_THREAD_CPUTIME_ID) - before;
     mach_cpu = mach_seconds() - mach_before;
     ru_cpu = rusage_seconds() - ru_before;
+    atomic_store(&done, 1);
     return NULL;
 }
 
@@ -100,12 +103,40 @@ int main(int argc, char **argv) {
     const suseconds_t us = (suseconds_t)(1000000 / hz);
     struct itimerval timer = {{0, us}, {0, us}};
     assert(setitimer(ITIMER_PROF, &timer, NULL) == 0);
+    const double helper_before = seconds(CLOCK_THREAD_CPUTIME_ID);
+    unsigned queries = 0, failures = 0;
+    kern_return_t last_return_code = KERN_SUCCESS;
     atomic_store(&running, 1);
+    if (strcmp(mode, "interrogate") == 0 || strcmp(mode, "helper-control") == 0) {
+        while (!atomic_load(&done)) {
+            if (strcmp(mode, "interrogate") == 0) {
+                // Own send right, distinct target, architecture's state flavor/count.
+                // No thread_suspend: running-thread return codes are part of the probe.
+#if defined(__x86_64__)
+                x86_thread_state64_t state;
+                mach_msg_type_number_t count = x86_THREAD_STATE64_COUNT;
+                last_return_code = thread_get_state(worker_port, x86_THREAD_STATE64, (thread_state_t)&state, &count);
+#elif defined(__aarch64__)
+                arm_thread_state64_t state;
+                mach_msg_type_number_t count = ARM_THREAD_STATE64_COUNT;
+                last_return_code = thread_get_state(worker_port, ARM_THREAD_STATE64, (thread_state_t)&state, &count);
+#endif
+                queries++;
+                if (last_return_code != KERN_SUCCESS) failures++;
+            }
+            struct timespec ts = {0, 1000000};
+            nanosleep(&ts, NULL);
+        }
+    }
     assert(pthread_join(worker, NULL) == 0);
+    const double helper_cpu = seconds(CLOCK_THREAD_CPUTIME_ID) - helper_before;
+    assert(mach_port_deallocate(mach_task_self(), worker_port) == KERN_SUCCESS);
     struct itimerval stopped = {{0, 0}, {0, 0}};
     assert(setitimer(ITIMER_PROF, &stopped, NULL) == 0);
     printf("{\"mode\":\"%s\",\"requested_hz\":%lu,\"all_samples\":%lu,\"worker_samples\":%lu,"
            "\"thread_cpu_s\":%.9f,\"mach_cpu_s\":%.9f,\"rusage_cpu_s\":%.9f,\"ratio\":%.6f,\"loops\":%lu}\n",
            mode, hz, atomic_load(&all_samples), atomic_load(&worker_samples), used_cpu, mach_cpu, ru_cpu,
            (double)atomic_load(&worker_samples) / hz / used_cpu, loops);
+    printf("{\"mode\":\"%s\",\"helper_cpu_s\":%.9f,\"state_queries\":%u,\"failures\":%u,\"last_return_code\":%d}\n",
+           mode, helper_cpu, queries, failures, last_return_code);
 }
