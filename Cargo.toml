@@ -1,0 +1,23 @@
+[package]
+name = "otelprofile"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Continuous in-process profiling for Rust that pushes standard OTLP Profiles"
+license = "Apache-2.0"
+repository = "https://github.com/akshatagarwl/otelprofile-rs"
+readme = "README.md"
+keywords = ["profiling", "opentelemetry", "otlp", "pprof", "jemalloc"]
+categories = ["development-tools::profiling"]
+exclude = ["/.github", "/docs/assets/src", "/evidence"]
+
+[workspace]
+members = ["examples/demo"]
+
+[dependencies]
+
+[lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+
+[lints.clippy]
+undocumented_unsafe_blocks = "warn"
