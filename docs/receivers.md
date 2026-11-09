@@ -3,6 +3,12 @@
 Run the checkout demo against a receiver, then read its profiles back. The check
 requires CPU and heap frames from the demo, not just a successful HTTP response.
 
+The 2026-11-09 readback summaries are saved in [receivers/](receivers).
+The Collector command below completed in 49 seconds with a warm local Cargo cache
+and an already-running Collector. Only newly appended requests were checked;
+all six kinds and positive span links were present. This is not a cold-install
+timing. See `quickstart-timing.json` and `quickstart-proof.json` in that directory.
+
 ## OpenTelemetry Collector 0.165.0
 
 From the repository root, start a Collector with profiles enabled.

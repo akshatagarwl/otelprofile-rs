@@ -1,0 +1,45 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {chromium} from 'playwright-core';
+
+const root = path.dirname(fileURLToPath(import.meta.url));
+const out = path.resolve(root, '..');
+const base = process.env.SIGIRO_URL ?? 'http://localhost:19998';
+const sql = async (body) => {
+  const response = await fetch(`${base}/v1/query`, {method: 'POST', body});
+  if (!response.ok) throw Error(await response.text());
+  return response.json();
+};
+const after = Number(process.env.AFTER_MS ?? 0);
+if (!Number.isSafeInteger(after) || after < 0) throw Error('AFTER_MS must be epoch milliseconds');
+const [{t0, t1}] = await sql(`SELECT min(epoch_ms(timestamp)) AS t0, max(epoch_ms(timestamp)) AS t1 FROM sigiro_profiles WHERE service_name='checkout' AND epoch_ms(timestamp)>=${after}`);
+const [{trace_id}] = await sql(`SELECT p.trace_id, sum(p.value) AS v FROM sigiro_profiles p JOIN sigiro_spans s ON p.trace_id=s.trace_id AND p.span_id=s.span_id WHERE p.service_name='checkout' AND p.profile_type='cpu' AND epoch_ms(p.timestamp)>=${after} GROUP BY 1 ORDER BY v DESC LIMIT 1`);
+if (!trace_id || !t0 || !t1) throw Error('run the checkout demo first');
+const browser = await chromium.launch({channel: 'chrome', headless: true});
+const page = await browser.newPage({viewport: {width: 1440, height: 1020}, deviceScaleFactor: 1});
+const errors = [];
+page.on('pageerror', error => errors.push(error.message));
+page.on('response', r => {if (r.status() >= 400) errors.push(`${r.status()} ${r.url()}`);});
+const capture = async (url, file) => {
+  await page.goto(url, {waitUntil: 'networkidle'});
+  await page.waitForTimeout(2000);
+  const text = await page.locator('body').innerText();
+  if (text.includes('No profile samples') || text.includes('Query failed')) throw Error(text);
+  await page.screenshot({path: path.join(out, file), fullPage: true});
+  console.log(file, text.slice(-900));
+};
+const query = new URLSearchParams({service:'checkout', ptype:'cpu', from:String(t0-60000), to:String(t1+60000)});
+await capture(`${base}/dashboard/profiles/?${query}`, 'sigiro-cpu.png');
+query.set('ptype', 'inuse_space');
+await capture(`${base}/dashboard/profiles/?${query}`, 'sigiro-heap.png');
+await capture(`${base}/dashboard/traces/?trace=${trace_id}`, 'sigiro-trace.png');
+const link = page.locator('[data-action="open-span-profile"]').first();
+if (!await link.count()) throw Error('trace has no span-profile link');
+await link.click();
+await page.waitForLoadState('networkidle');
+await page.waitForTimeout(1500);
+if (!page.url().includes('&span=')) throw Error('span link did not open a filtered profile');
+await page.screenshot({path: path.join(out, 'sigiro-span.png'), fullPage: true});
+if (errors.length) throw Error(errors.join('\n'));
+await browser.close();

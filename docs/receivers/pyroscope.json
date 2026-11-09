@@ -1,0 +1,34 @@
+{
+  "receiver": "pyroscope",
+  "profiles": [
+    {
+      "kind": "alloc_objects",
+      "total": "1320393",
+      "demo_frame": "render_receipt"
+    },
+    {
+      "kind": "alloc_space",
+      "total": "199716344",
+      "demo_frame": "render_receipt"
+    },
+    {
+      "kind": "cpu",
+      "total": "18840000000",
+      "demo_frame": "price_cart"
+    },
+    {
+      "kind": "inuse_objects",
+      "total": "868554",
+      "demo_frame": "render_receipt"
+    },
+    {
+      "kind": "inuse_space",
+      "total": "144316199",
+      "demo_frame": "render_receipt"
+    },
+    {
+      "kind": "samples",
+      "limitation": "type listed, no count flamegraph returned"
+    }
+  ]
+}

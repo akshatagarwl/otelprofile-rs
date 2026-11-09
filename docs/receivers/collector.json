@@ -1,0 +1,12 @@
+{
+  "receiver": "collector",
+  "kinds": [
+    "alloc_objects",
+    "alloc_space",
+    "cpu",
+    "inuse_objects",
+    "inuse_space",
+    "samples"
+  ],
+  "linked_samples": 4030
+}

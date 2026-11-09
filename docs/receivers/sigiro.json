@@ -1,0 +1,42 @@
+{
+  "receiver": "sigiro",
+  "profiles": [
+    {
+      "linked": 135,
+      "profile_type": "inuse_objects",
+      "rows": 222,
+      "total": 905195
+    },
+    {
+      "linked": 3517,
+      "profile_type": "samples",
+      "rows": 3657,
+      "total": 3964
+    },
+    {
+      "linked": 274,
+      "profile_type": "alloc_space",
+      "rows": 367,
+      "total": 316934040
+    },
+    {
+      "linked": 274,
+      "profile_type": "alloc_objects",
+      "rows": 367,
+      "total": 2351691
+    },
+    {
+      "linked": 3517,
+      "profile_type": "cpu",
+      "rows": 3657,
+      "total": 39640000000
+    },
+    {
+      "linked": 135,
+      "profile_type": "inuse_space",
+      "rows": 222,
+      "total": 257923560
+    }
+  ],
+  "samples_with_exported_span": 7852
+}
